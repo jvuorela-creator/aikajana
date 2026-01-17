@@ -19,8 +19,7 @@ data = {
         "Matti muuttaa Amerikkaan.",
         "Kyläkoulu perustetaan.",
         "Suomi itsenäistyy.",
-        "Talvisota alkaa."
-    ],
+        "Talvisota alkaa."    ],
     'Sarake_C': [
         "Kirkonkirjat: Kastettu 15.2.1850.",
         "Väestötilasto: Kuolleisuus huipussaan.",
@@ -28,7 +27,6 @@ data = {
         "Kansakouluasetus voimaan.",
         "Valtiomuoto muuttuu.",
         "Liikekannallepanojulistus."
-
 }
 df = pd.read_excel('Aikajana17012026.xlsx')
 
