@@ -1,6 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.animation import PillowWriter
 import pandas as pd
 import textwrap
 import numpy as np
@@ -19,11 +20,9 @@ if not os.path.exists(filename):
 
 try:
     df = pd.read_excel(filename)
-    
-    # Tarkistetaan sarakkeet
     required_cols = ['Vuosi', 'Sarake_B', 'Sarake_C']
     if not all(col in df.columns for col in required_cols):
-        st.error(f"Excel-tiedostosta puuttuu sarakkeita: {', '.join(required_cols)}")
+        st.error(f"Sarakkeet puuttuvat: {', '.join(required_cols)}")
         st.stop()
 
     df = df.dropna(subset=['Vuosi'])
@@ -31,10 +30,6 @@ try:
     df['Sarake_B'] = df['Sarake_B'].fillna("")
     df['Sarake_C'] = df['Sarake_C'].fillna("")
     df = df.sort_values(by='Vuosi').reset_index(drop=True)
-
-    # VAROITUS SUURESTA DATAMÄÄRÄSTÄ
-    if len(df) > 30:
-        st.warning(f"Huomio: Tiedostossa on {len(df)} tapahtumaa. Animaation luonti voi kestää yli minuutin.")
 
 except Exception as e:
     st.error(f"Virhe: {e}")
@@ -46,8 +41,7 @@ df['x_pos'] = df.index * STEP
 
 # --- KUVAAJA ---
 fig, ax = plt.subplots(figsize=(12, 6))
-ax.yaxis.set_visible(False)
-ax.axis('off') # Poistetaan kaikki reunat
+ax.axis('off')
 
 # Aikajana
 max_x = df['x_pos'].max()
@@ -55,7 +49,6 @@ ax.plot([-5, max_x + 5], [0, 0], color="black", linewidth=2, zorder=1)
 
 # --- PIIRRETÄÄN TEKSTIT ---
 text_width = 30
-
 for i, row in df.iterrows():
     x = row['x_pos']
     ax.scatter(x, 0, s=100, color='firebrick', zorder=2)
@@ -75,20 +68,16 @@ for i, row in df.iterrows():
 
 ax.set_ylim(-8, 8)
 
-# --- OPTIMOITU ANIMAATION LOGIIKKA ---
+# --- ANIMATION FRAMES ---
 camera_positions = []
-
-# NÄMÄ ARVOT VAIKUTTAVAT NOPEUTEEN JA RASKAUTEEN
-pause_frames = 10   # Pidetään kuva paikallaan (vähennetty 20 -> 10)
-slide_frames = 5    # Siirtymän pituus ruutuina (vähennetty 40 -> 5)
+pause_frames = 8   # Kuinka kauan pysytään paikallaan
+slide_frames = 6   # Kuinka nopeasti liu'utaan
 
 for i in range(len(df)):
     current_x = df.iloc[i]['x_pos']
     camera_positions.extend([current_x] * pause_frames)
-    
     if i < len(df) - 1:
         next_x = df.iloc[i+1]['x_pos']
-        # Luodaan vähemmän väliaskelia -> kevyempi tiedosto
         transition = np.linspace(current_x, next_x, slide_frames)
         camera_positions.extend(transition)
 
@@ -97,21 +86,33 @@ def update(frame_x):
     ax.set_xlim(frame_x - (window_width/2), frame_x + (window_width/2))
     return ax,
 
-# --- RENDEROINTI ---
-total_frames = len(camera_positions)
-st.info(f"Luodaan animaatiota ({total_frames} ruutua). Tämä vie hetken, odota rauhassa...")
+# --- GIF TALLENNUS JA NÄYTTÖ ---
+st.info(f"Generoidaan GIF-animaatiota ({len(camera_positions)} ruutua). Tämä vie hetken...")
+progress_bar = st.progress(0)
 
-# Progress bar visuaalisuuden vuoksi (ei päivity animaation sisällä, mutta näyttää että prosessi on käynnissä)
-bar = st.progress(10)
+ani = animation.FuncAnimation(fig, update, frames=camera_positions, blit=False)
 
-# interval = 200ms (hidas) kompensoi pientä ruutumäärää. Liike on hieman "töksähtävämpi" mutta latautuu.
-ani = animation.FuncAnimation(fig, update, frames=camera_positions, interval=200, blit=False)
-
+# Tallennetaan GIF levylle
+gif_filename = "aikajana_animaatio.gif"
 try:
-    # Generoidaan HTML
-    jshtml = ani.to_jshtml()
-    bar.progress(100)
-    st.components.v1.html(jshtml, height=600)
-    st.success("Animaatio valmis!")
+    # FPS määrittää nopeuden. 10 fps on hyvä kompromissi.
+    writer = PillowWriter(fps=10) 
+    ani.save(gif_filename, writer=writer)
+    
+    progress_bar.progress(100)
+    st.success("Valmis!")
+    
+    # Näytetään GIF
+    st.image(gif_filename, use_container_width=True)
+    
+    # Mahdollisuus ladata tiedosto
+    with open(gif_filename, "rb") as file:
+        st.download_button(
+            label="Lataa GIF-tiedosto",
+            data=file,
+            file_name=gif_filename,
+            mime="image/gif"
+        )
+
 except Exception as e:
-    st.error(f"Animaation luonti epäonnistui (muisti loppui?). Vähennä Excelin rivimäärää. Virhe: {e}")
+    st.error(f"Virhe GIFin luonnissa: {e}")
