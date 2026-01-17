@@ -12,7 +12,7 @@ st.write("Aikajana liukuu vasemmalta oikealle. Kamera pysähtyy hetkeksi jokaise
 
 # 1. Data
 data = {
-    'Vuosi': [1850, 1865, 1892, 1905, 1917, 1939],
+    'Vuosi': [1870, 1871, 1872, 1873, 1874, 1875, 1876, 1877, 1878, 1879, 1880, 1881,1882, 1883, 1884,1885, 1886, 1887,1888,1889],
     'Sarake_B': [
         "Matti Meikäläinen syntyy torpassa.",
         "Suuret nälkävuodet koettelevat seutua.",
@@ -28,9 +28,9 @@ data = {
         "Kansakouluasetus voimaan.",
         "Valtiomuoto muuttuu.",
         "Liikekannallepanojulistus."
-    ]
+
 }
-df = pd.DataFrame(data)
+df = pd.read_excel('aikajana.xlsx')
 
 # Määritellään etäisyys tapahtumien välillä x-akselilla
 STEP = 10 
