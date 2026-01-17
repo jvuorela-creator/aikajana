@@ -70,8 +70,8 @@ ax.set_ylim(-8, 8)
 
 # --- ANIMATION FRAMES ---
 camera_positions = []
-pause_frames = 8   # Kuinka kauan pysytään paikallaan
-slide_frames = 6   # Kuinka nopeasti liu'utaan
+pause_frames = 16   # Kuinka kauan pysytään paikallaan
+slide_frames = 12   # Kuinka nopeasti liu'utaan
 
 for i in range(len(df)):
     current_x = df.iloc[i]['x_pos']
