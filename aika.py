@@ -30,7 +30,7 @@ data = {
         "Liikekannallepanojulistus."
 
 }
-df = pd.read_excel('aikajana.xlsx')
+df = pd.read_excel('Aikajana17012026.xlsx')
 
 # Määritellään etäisyys tapahtumien välillä x-akselilla
 STEP = 10 
