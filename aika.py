@@ -13,120 +13,105 @@ st.title("Sukututkimuksen aikajana")
 # --- DATAN LATAUS ---
 filename = 'Aikajana17012026.xlsx'
 
-# Tarkistetaan, löytyykö tiedosto
 if not os.path.exists(filename):
-    st.error(f"Virhe: Tiedostoa '{filename}' ei löytynyt. Varmista, että se on ladattu samaan kansioon koodin kanssa.")
+    st.error(f"Virhe: Tiedostoa '{filename}' ei löytynyt.")
     st.stop()
 
 try:
-    # Luetaan Excel
     df = pd.read_excel(filename)
     
     # Tarkistetaan sarakkeet
     required_cols = ['Vuosi', 'Sarake_B', 'Sarake_C']
     if not all(col in df.columns for col in required_cols):
-        st.error(f"Excel-tiedostosta puuttuu sarakkeita. Varmista että otsikot ovat: {', '.join(required_cols)}")
+        st.error(f"Excel-tiedostosta puuttuu sarakkeita: {', '.join(required_cols)}")
         st.stop()
 
-    # Siivotaan dataa:
-    # 1. Poistetaan rivit, joista puuttuu vuosi
     df = df.dropna(subset=['Vuosi'])
-    # 2. Muutetaan vuosi kokonaisluvuksi (ettei näy 1900.0)
     df['Vuosi'] = df['Vuosi'].astype(int)
-    # 3. Korvataan tyhjät tekstikentät tyhjällä merkkijonolla
     df['Sarake_B'] = df['Sarake_B'].fillna("")
     df['Sarake_C'] = df['Sarake_C'].fillna("")
-    
-    # Järjestetään data varmuuden vuoksi vuoden mukaan vanhimmasta uusimpaan
     df = df.sort_values(by='Vuosi').reset_index(drop=True)
 
+    # VAROITUS SUURESTA DATAMÄÄRÄSTÄ
+    if len(df) > 30:
+        st.warning(f"Huomio: Tiedostossa on {len(df)} tapahtumaa. Animaation luonti voi kestää yli minuutin.")
+
 except Exception as e:
-    st.error(f"Virhe luettaessa Excel-tiedostoa: {e}")
+    st.error(f"Virhe: {e}")
     st.stop()
 
-# --- DATAN KÄSITTELY ANIMAATIOTA VARTEN ---
-
-# Määritellään etäisyys tapahtumien välillä x-akselilla
+# --- DATAN KÄSITTELY ---
 STEP = 10 
 df['x_pos'] = df.index * STEP 
 
-# --- KUVAAJAN ALUSTUS ---
+# --- KUVAAJA ---
 fig, ax = plt.subplots(figsize=(12, 6))
-
-# Piilotetaan turhat elementit
 ax.yaxis.set_visible(False)
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.spines['left'].set_visible(False)
-ax.spines['bottom'].set_visible(False)
+ax.axis('off') # Poistetaan kaikki reunat
 
-# Piirretään aikajana
+# Aikajana
 max_x = df['x_pos'].max()
 ax.plot([-5, max_x + 5], [0, 0], color="black", linewidth=2, zorder=1)
 
-# --- STAATTISET TEKSTIT JA OBJEKTIT ---
-# Piirretään kaikki valmiiksi paikoilleen, animaatio vain liikuttaa kameraa.
+# --- PIIRRETÄÄN TEKSTIT ---
 text_width = 30
 
 for i, row in df.iterrows():
     x = row['x_pos']
-    
-    # Pallo aikajanalle
     ax.scatter(x, 0, s=100, color='firebrick', zorder=2)
-    
-    # Vuosiluku
     ax.text(x, -0.8, str(row['Vuosi']), ha='center', va='top', fontsize=12, fontweight='bold')
-    
-    # Pystyviivat
-    ax.plot([x, x], [0, 3], color='gray', linestyle='--', alpha=0.5, linewidth=1) # Ylös
-    ax.plot([x, x], [0, -3], color='gray', linestyle='--', alpha=0.5, linewidth=1) # Alas
+    ax.plot([x, x], [0, 3], color='gray', linestyle='--', alpha=0.5, linewidth=1)
+    ax.plot([x, x], [0, -3], color='gray', linestyle='--', alpha=0.5, linewidth=1)
 
-    # Yläteksti (Sarake C)
-    if row['Sarake_C']: # Piirretään vain jos tekstiä on
+    if row['Sarake_C']:
         wrapped_c = "\n".join(textwrap.wrap(str(row['Sarake_C']), text_width))
         ax.text(x, 3.2, wrapped_c, ha='center', va='bottom', fontsize=10, color='darkblue', 
                 bbox=dict(boxstyle="round,pad=0.3", fc="aliceblue", ec="blue", alpha=0.8))
 
-    # Alateksti (Sarake B)
-    if row['Sarake_B']: # Piirretään vain jos tekstiä on
+    if row['Sarake_B']:
         wrapped_b = "\n".join(textwrap.wrap(str(row['Sarake_B']), text_width))
         ax.text(x, -3.2, wrapped_b, ha='center', va='top', fontsize=10, color='darkgreen',
                  bbox=dict(boxstyle="round,pad=0.3", fc="honeydew", ec="green", alpha=0.8))
 
-# Asetetaan Y-rajat
 ax.set_ylim(-8, 8)
 
-# --- KAMERAN LIIKE (ANIMAATION LOGIIKKA) ---
+# --- OPTIMOITU ANIMAATION LOGIIKKA ---
 camera_positions = []
 
-pause_frames = 20   # Pysähdys lukemista varten
-slide_frames = 40   # Siirtymän kesto
+# NÄMÄ ARVOT VAIKUTTAVAT NOPEUTEEN JA RASKAUTEEN
+pause_frames = 10   # Pidetään kuva paikallaan (vähennetty 20 -> 10)
+slide_frames = 5    # Siirtymän pituus ruutuina (vähennetty 40 -> 5)
 
 for i in range(len(df)):
     current_x = df.iloc[i]['x_pos']
-    
-    # 1. Pysähdys
     camera_positions.extend([current_x] * pause_frames)
     
-    # 2. Liuku seuraavaan
     if i < len(df) - 1:
         next_x = df.iloc[i+1]['x_pos']
+        # Luodaan vähemmän väliaskelia -> kevyempi tiedosto
         transition = np.linspace(current_x, next_x, slide_frames)
         camera_positions.extend(transition)
 
 def update(frame_x):
-    # Liikutetaan "kameraa" eli x-akselin rajausta
-    window_width = 12
+    window_width = 14
     ax.set_xlim(frame_x - (window_width/2), frame_x + (window_width/2))
     return ax,
 
-# --- ANIMAATION RENDEROINTI ---
-st.write(f"Ladattu {len(df)} tapahtumaa tiedostosta '{filename}'. Generoidaan animaatiota...")
+# --- RENDEROINTI ---
+total_frames = len(camera_positions)
+st.info(f"Luodaan animaatiota ({total_frames} ruutua). Tämä vie hetken, odota rauhassa...")
 
-# Luodaan animaatio
-ani = animation.FuncAnimation(fig, update, frames=camera_positions, interval=50, blit=False)
+# Progress bar visuaalisuuden vuoksi (ei päivity animaation sisällä, mutta näyttää että prosessi on käynnissä)
+bar = st.progress(10)
 
-# Näytetään HTML-muodossa
-st.components.v1.html(ani.to_jshtml(), height=600)
+# interval = 200ms (hidas) kompensoi pientä ruutumäärää. Liike on hieman "töksähtävämpi" mutta latautuu.
+ani = animation.FuncAnimation(fig, update, frames=camera_positions, interval=200, blit=False)
 
-st.success("Valmis!")
+try:
+    # Generoidaan HTML
+    jshtml = ani.to_jshtml()
+    bar.progress(100)
+    st.components.v1.html(jshtml, height=600)
+    st.success("Animaatio valmis!")
+except Exception as e:
+    st.error(f"Animaation luonti epäonnistui (muisti loppui?). Vähennä Excelin rivimäärää. Virhe: {e}")
